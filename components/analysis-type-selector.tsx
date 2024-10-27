@@ -25,6 +25,9 @@ export function AnalysisTypeSelector({ onValueChange }: AnalysisTypeSelectorProp
           <SelectItem value="cronbach">Cronbach's Alpha</SelectItem>
           <SelectItem value="correlation">Correlation Analysis</SelectItem>
           <SelectItem value="factor">Factor Analysis</SelectItem>
+          <SelectItem value="ttest">T-Test</SelectItem>
+          <SelectItem value="anova">ANOVA</SelectItem>
+          <SelectItem value="regression">Regression Analysis</SelectItem>
         </SelectContent>
       </Select>
     </div>

@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import { Toaster } from "@/components/ui/toaster";
 import { ThemeProvider } from "@/components/theme-provider";
+// import { useState } from 'react';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -16,18 +17,25 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
+  // const [theme, setTheme] = useState('system');
+
+  // const toggleTheme = () => {
+  //   setTheme((prev) => (prev === 'light' ? 'dark' : 'light'));
+  // };
+
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className} suppressHydrationWarning>
-        <ThemeProvider
+        {/* <ThemeProvider
           attribute="class"
-          defaultTheme="system"
+          defaultTheme={theme}
           enableSystem
           disableTransitionOnChange
         >
-          {children}
-          <Toaster />
-        </ThemeProvider>
+          <button onClick={toggleTheme}>Toggle Theme</button> */}
+        {children}
+        <Toaster />
+        {/* </ThemeProvider> */}
       </body>
     </html>
   );
