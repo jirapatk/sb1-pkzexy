@@ -69,6 +69,12 @@ export default function Analysis({ data }: AnalysisProps) {
 
   const questionGroups = detectQuestionGroups();
 
+  // Reset results when analysis type changes
+  useEffect(() => {
+    setResults(null);
+    setGroupResults({});
+  }, [selectedAnalysis]);
+
   const handleVariableToggle = (variable: string) => {
     setSelectedVariables(prev =>
       prev.includes(variable)
@@ -88,7 +94,7 @@ export default function Analysis({ data }: AnalysisProps) {
               newGroupResults[group.id] = groupVariables.map(variable => ({
                 variable,
                 ...calculateDescriptiveStats(data, variable),
-              }));
+              })).filter(stat => stat !== null);
               break;
             case "cronbach":
               newGroupResults[group.id] = calculateCronbachAlpha(data, groupVariables);
@@ -117,10 +123,9 @@ export default function Analysis({ data }: AnalysisProps) {
             const stats = selectedVariables.map(variable => ({
               variable,
               ...calculateDescriptiveStats(data, variable),
-            }));
+            })).filter(stat => stat !== null);
             setResults({ type: "descriptive", data: stats });
             break;
-
           case "cronbach":
             if (selectedVariables.length < 2) {
               toast({
@@ -136,7 +141,6 @@ export default function Analysis({ data }: AnalysisProps) {
               data: cronbachResult,
             });
             break;
-
           case "correlation":
             if (selectedVariables.length !== 2) {
               toast({
@@ -155,7 +159,12 @@ export default function Analysis({ data }: AnalysisProps) {
               data: { correlation: correlation.toFixed(3) },
             });
             break;
-
+          case "factor":
+            setResults({
+              type: "factor",
+              data: calculateFactorAnalysis(data, selectedVariables),
+            });
+            break;
           default:
             toast({
               title: "Error",
@@ -193,32 +202,38 @@ export default function Analysis({ data }: AnalysisProps) {
     return matrix;
   };
 
-  const renderDescriptiveStatsTable = (stats: any[]) => (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead>Variable</TableHead>
-          <TableHead>N</TableHead>
-          <TableHead>Mean</TableHead>
-          <TableHead>Std. Deviation</TableHead>
-          <TableHead>Minimum</TableHead>
-          <TableHead>Maximum</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {stats.map((stat, index) => (
-          <TableRow key={index}>
-            <TableCell>{stat.variable}</TableCell>
-            <TableCell>{stat.n}</TableCell>
-            <TableCell>{stat.mean}</TableCell>
-            <TableCell>{stat.stdDev}</TableCell>
-            <TableCell>{stat.min}</TableCell>
-            <TableCell>{stat.max}</TableCell>
+  const renderDescriptiveStatsTable = (stats: any[] | undefined) => {
+    if (!stats || !Array.isArray(stats) || stats.length === 0) {
+      return <p>No descriptive statistics data available.</p>;
+    }
+
+    return (
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Variable</TableHead>
+            <TableHead>N</TableHead>
+            <TableHead>Mean</TableHead>
+            <TableHead>Std. Deviation</TableHead>
+            <TableHead>Minimum</TableHead>
+            <TableHead>Maximum</TableHead>
           </TableRow>
-        ))}
-      </TableBody>
-    </Table>
-  );
+        </TableHeader>
+        <TableBody>
+          {stats.map((stat, index) => (
+            <TableRow key={index}>
+              <TableCell>{stat.variable}</TableCell>
+              <TableCell>{stat.n}</TableCell>
+              <TableCell>{stat.mean}</TableCell>
+              <TableCell>{stat.stdDev}</TableCell>
+              <TableCell>{stat.min}</TableCell>
+              <TableCell>{stat.max}</TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    );
+  };
 
   const renderCorrelationMatrix = (matrix: Record<string, Record<string, number>> | undefined) => {
     if (!matrix) {
@@ -269,7 +284,7 @@ export default function Analysis({ data }: AnalysisProps) {
             {Object.entries(result.itemTotalCorrelations).map(([variable, correlation]) => (
               <TableRow key={variable}>
                 <TableCell>{variable}</TableCell>
-                <TableCell>{correlation.toFixed(3)}</TableCell>
+                <TableCell>{typeof correlation === 'number' ? correlation.toFixed(3) : 'N/A'}</TableCell>
               </TableRow>
             ))}
           </TableBody>
@@ -292,7 +307,11 @@ export default function Analysis({ data }: AnalysisProps) {
         <Switch
           id="auto-mode"
           checked={autoMode}
-          onCheckedChange={setAutoMode}
+          onCheckedChange={(checked) => {
+            setAutoMode(checked);
+            setResults(null);
+            setGroupResults({});
+          }}
         />
         <Label htmlFor="auto-mode">Auto Mode</Label>
       </div>
@@ -319,9 +338,9 @@ export default function Analysis({ data }: AnalysisProps) {
               </CardHeader>
               <CardContent>
                 {selectedAnalysis === "descriptive" && groupResults[group.id] && 
-                  renderDescriptiveStatsTable(groupResults[group.id])}
-                {selectedAnalysis === "cronbach" && 
-                  renderCronbachAlpha(groupResults[group.id])}
+                  renderDescriptiveStatsTable(Array.isArray(groupResults[group.id]) ? groupResults[group.id] : undefined)}
+                {selectedAnalysis === "cronbach" && groupResults[group.id] && 
+                  renderCronbachAlpha(groupResults[group.id] as { alpha: number, itemTotalCorrelations: Record<string, number> } | undefined)}
                 {selectedAnalysis === "correlation" && 
                   renderCorrelationMatrix(groupResults[group.id])}
                 {selectedAnalysis === "factor" && (
@@ -333,20 +352,19 @@ export default function Analysis({ data }: AnalysisProps) {
         </div>
       )}
 
-      {!autoMode && (
+      {!autoMode && results && (
         <Card>
           <CardHeader>
             <CardTitle>Analysis Results</CardTitle>
           </CardHeader>
           <CardContent>
-            {results && (
-              <>
-                {results.type === "descriptive" && renderDescriptiveStatsTable(results.data)}
-                {results.type === "cronbach" && renderCronbachAlpha(results.data)}
-                {results.type === "correlation" && (
-                  <p>Correlation: {results.data.correlation}</p>
-                )}
-              </>
+            {results.type === "descriptive" && renderDescriptiveStatsTable(results.data)}
+            {results.type === "cronbach" && renderCronbachAlpha(results.data as { alpha: number, itemTotalCorrelations: Record<string, number> } | undefined)}
+            {results.type === "correlation" && (
+              <p>Correlation: {results.data.correlation}</p>
+            )}
+            {results.type === "factor" && (
+              <pre>{JSON.stringify(results.data, null, 2)}</pre>
             )}
           </CardContent>
         </Card>
